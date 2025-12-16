@@ -73,7 +73,7 @@ Aplikacja jest przeznaczona głównie do **nauki fizyki, akustyki i przetwarzani
 
 ```bash
  ./gradlew clean
- ./gradlew build
+ ./gradlew buildDependents
  ./gradlew run
 ```
 
@@ -153,7 +153,7 @@ Using **Gradle**:
 
 ```bash
 ./gradlew clean
-./gradlew build
+./gradlew buildDependents
 ./gradlew run
 ```
 
