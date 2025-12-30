@@ -6,6 +6,7 @@ class Tone {
     private double phase = 0.0;
     private boolean enabled = true;
     private final double sampleRate;
+    private WaveType waveType = WaveType.SINE;
 
     public Tone(double frequency, double amplitude, double sampleRate) {
         this.frequency = frequency;
@@ -14,11 +15,22 @@ class Tone {
     }
 
     public double nextSample() {
-        double value = Math.sin(phase) * amplitude;
+        double v;
+        switch (waveType) {
+            case SQUARE -> v = Math.signum(Math.sin(phase));
+            case TRIANGLE -> v = 2 / Math.PI * Math.asin(Math.sin(phase));
+            case SAW -> v = 2 * (phase / (2 * Math.PI)) - 1;
+            default -> v = Math.sin(phase);
+        }
+
         phase += 2.0 * Math.PI * frequency / sampleRate;
-        if (phase > Math.PI * 2) phase -= Math.PI * 2;
-        return enabled ? value : 0.0;
+        if (phase >= 2 * Math.PI) phase -= 2 * Math.PI;
+
+        return enabled ? v * amplitude : 0.0;
     }
+
+    public WaveType getWaveType() { return waveType; }
+    public void setWaveType(WaveType waveType) { this.waveType = waveType; }
 
     public double getFrequency() { return frequency; }
     public void setFrequency(double frequency) { this.frequency = frequency; }

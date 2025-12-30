@@ -10,14 +10,17 @@ class ToneControlPanel extends JPanel {
         setLayout(new GridBagLayout());
         setBorder(BorderFactory.createTitledBorder("Ton"));
 
-        setMaximumSize(new Dimension(Integer.MAX_VALUE, 190));
-        setPreferredSize(new Dimension(320, 190));
+        setMaximumSize(new Dimension(Integer.MAX_VALUE, 240));
+        setPreferredSize(new Dimension(320, 240));
         setAlignmentX(Component.LEFT_ALIGNMENT);
 
         GridBagConstraints c = new GridBagConstraints();
         c.insets = new Insets(4, 4, 4, 4);
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;
+
+        JComboBox<WaveType> waveBox = new JComboBox<>(WaveType.values());
+        waveBox.addActionListener(e -> tone.setWaveType((WaveType) waveBox.getSelectedItem()));
 
         JCheckBox enabledBox = new JCheckBox("Włączony", tone.isEnabled());
         enabledBox.addActionListener(e -> tone.setEnabled(enabledBox.isSelected()));
@@ -75,9 +78,19 @@ class ToneControlPanel extends JPanel {
         c.gridx = 1;
         add(ampField, c);
 
-        c.gridx = 0; c.gridy++;
+        c.gridx = 0;
+        c.gridy++;
         c.gridwidth = 2;
         add(ampSlider, c);
+
+
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = 2;
+        add(new JLabel("Typ fali"), c);
+
+        c.gridy++;
+        add(waveBox, c);
     }
 
     static class IntFilter extends DocumentFilter {

@@ -1,13 +1,15 @@
-
 package pl.jacpio;
 
+import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 
-import javax.sound.sampled.*;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.SourceDataLine;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,11 +18,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class RealtimeSineSynth {
 
     public static void main(String[] args) {
-       FlatLightLaf.setup();
-       SwingUtilities.invokeLater(() -> new RealtimeSineSynth().createAndShowGUI());
+        System.setProperty("flatlaf.useNativeWindowDecorations", "false");
+        FlatLightLaf.setup();
+        SwingUtilities.invokeLater(() -> new RealtimeSineSynth().createAndShowGUI());
     }
 
     private JPanel tonesPanel;
+    private final List<Short> recordedSamples = new ArrayList<>();
 
     private final float SAMPLE_RATE = 44100f;
     private final int SAMPLE_BITS = 16;
@@ -45,7 +49,7 @@ public class RealtimeSineSynth {
 
     private void createAndShowGUI() {
 
-        frame = new JFrame("Syntezator pokazowy");
+        frame = new JFrame("Realtime Sine Synth");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
@@ -64,15 +68,26 @@ public class RealtimeSineSynth {
         JButton savePlotBtn = new JButton("Zapisz wykres (PNG)");
         savePlotBtn.addActionListener(e -> saveCurrentPlot());
 
-        JPanel leftBottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-        leftBottom.add(addToneBtn);
-        leftBottom.add(startStopBtn);
-        leftBottom.add(savePlotBtn);
+        JButton exportWavBtn = new JButton("Eksport WAV");
+        exportWavBtn.addActionListener(e -> exportWav());
 
-        JPanel leftPanel = new JPanel(new BorderLayout());
+        JButton themeBtn = new JButton("Dark / Light");
+        themeBtn.addActionListener(e -> toggleTheme());
+
+        JPanel topButtons = new JPanel();
+        topButtons.setLayout(new GridLayout(2, 1, 6, 6));
+        topButtons.setBorder(BorderFactory.createTitledBorder("Sterowanie"));
+
+        topButtons.add(startStopBtn);
+        topButtons.add(addToneBtn);
+        topButtons.add(savePlotBtn);
+        topButtons.add(exportWavBtn);
+        topButtons.add(themeBtn);
+
+        JPanel leftPanel = new JPanel(new BorderLayout(8, 8));
         leftPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        leftPanel.add(topButtons, BorderLayout.SOUTH);
         leftPanel.add(tonesScroll, BorderLayout.CENTER);
-        leftPanel.add(leftBottom, BorderLayout.SOUTH);
 
         frame.add(leftPanel, BorderLayout.WEST);
 
@@ -87,20 +102,13 @@ public class RealtimeSineSynth {
         fftPanel = new FFTPanel(SAMPLE_RATE);
 
         tabbedPane.addTab("Oscyloskop", wavePanel);
-        tabbedPane.addTab("FFT (widmo)", fftPanel);
+        tabbedPane.addTab("FFT", fftPanel);
 
         frame.add(tabbedPane, BorderLayout.CENTER);
 
         frame.setSize(1200, 700);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
-
-        SwingUtilities.invokeLater(() -> {
-            fftPanel.updateFFT(circularBuffer, writeIndex);
-            wavePanel.repaint();
-            fftPanel.repaint();
-            System.out.println("writeIndex: " + writeIndex);
-        });
 
         addNewTone();
 
@@ -112,18 +120,25 @@ public class RealtimeSineSynth {
         repaintTimer.start();
     }
 
+    private void toggleTheme() {
+        try {
+            if (UIManager.getLookAndFeel() instanceof FlatLightLaf)
+                FlatDarkLaf.setup();
+            else
+                FlatLightLaf.setup();
 
+            SwingUtilities.updateComponentTreeUI(frame);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     private void addNewTone() {
         Tone tone = new Tone(440, 0.5, SAMPLE_RATE);
-
         synchronized (tones) {
             tones.add(tone);
         }
-
-        ToneControlPanel panel = new ToneControlPanel(tone);
-        tonesPanel.add(panel);
-
+        tonesPanel.add(new ToneControlPanel(tone));
         tonesPanel.revalidate();
         tonesPanel.repaint();
     }
@@ -131,71 +146,49 @@ public class RealtimeSineSynth {
     private void togglePlayback() {
         if (!playing.get()) startAudio();
         else stopAudio();
+
     }
 
     private void startAudio() {
         try {
             AudioFormat format = new AudioFormat(SAMPLE_RATE, SAMPLE_BITS, CHANNELS, true, false);
-            DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
-            line = (SourceDataLine) AudioSystem.getLine(info);
+            line = (SourceDataLine) AudioSystem.getLine(new DataLine.Info(SourceDataLine.class, format));
             line.open(format, 4096);
             line.start();
-        } catch (LineUnavailableException ex) {
-            JOptionPane.showMessageDialog(frame, "Nie można otworzyć linii audio: " + ex.getMessage(),
-                    "Błąd audio", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, ex.getMessage(), "Audio error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-
+        recordedSamples.clear();
         playing.set(true);
         startStopBtn.setText("Stop");
 
         audioThread = new Thread(() -> {
-
-            byte[] byteBuf = new byte[1024 * 2];
-            int samplesPerChunk = byteBuf.length / 2;
-
+            byte[] buffer = new byte[2048];
             while (playing.get()) {
-
-                for (int i = 0; i < samplesPerChunk; i++) {
-
+                for (int i = 0; i < buffer.length / 2; i++) {
                     double sample = 0.0;
-
                     synchronized (tones) {
-                        for (Tone tone : tones) {
-                            if (!tone.isEnabled()) continue;
-
-                            double s = tone.nextSample();
-
-                            if (!Double.isNaN(s) && !Double.isInfinite(s)) {
-                                sample += s;
-                            }
-                        }
+                        for (Tone t : tones)
+                            if (t.isEnabled()) sample += t.nextSample();
                     }
+                    sample = Math.max(-1, Math.min(1, sample));
+                    short pcm = (short) (sample * Short.MAX_VALUE);
+                    recordedSamples.add(pcm);
 
-                    if (sample > 1.0) sample = 1.0;
-                    if (sample < -1.0) sample = -1.0;
+                    buffer[i * 2] = (byte) (pcm & 0xff);
+                    buffer[i * 2 + 1] = (byte) ((pcm >> 8) & 0xff);
 
                     synchronized (circularBuffer) {
                         circularBuffer[writeIndex] = (float) sample;
                         writeIndex = (writeIndex + 1) % circularBuffer.length;
                     }
-
-                    short pcm = (short) (sample * Short.MAX_VALUE);
-                    int idx = i * 2;
-                    byteBuf[idx]     = (byte) (pcm & 0xff);
-                    byteBuf[idx + 1] = (byte) ((pcm >> 8) & 0xff);
                 }
-
-                line.write(byteBuf, 0, byteBuf.length);
+                line.write(buffer, 0, buffer.length);
             }
-
-            if (line != null) {
-                line.drain();
-                line.stop();
-                line.close();
-            }
-
-        }, "Audio-Generator");
+            line.drain();
+            line.close();
+        });
 
         audioThread.setDaemon(true);
         audioThread.start();
@@ -206,24 +199,30 @@ public class RealtimeSineSynth {
         startStopBtn.setText("Start");
     }
 
-
-
-
-
     private void saveCurrentPlot() {
         Component comp = tabbedPane.getSelectedComponent();
-        if (comp == null) return;
         BufferedImage img = new BufferedImage(comp.getWidth(), comp.getHeight(), BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = img.createGraphics();
-        comp.paint(g);
-        g.dispose();
+        comp.paint(img.getGraphics());
+
         JFileChooser fc = new JFileChooser();
-        fc.setSelectedFile(new File("plot.png"));
-        int res = fc.showSaveDialog(frame);
-        if (res == JFileChooser.APPROVE_OPTION) {
-            File f = fc.getSelectedFile();
-            try { javax.imageio.ImageIO.write(img, "png", f); JOptionPane.showMessageDialog(frame, "Zapisano: " + f.getAbsolutePath()); }
-            catch (IOException ex) { JOptionPane.showMessageDialog(frame, "Błąd zapisu: " + ex.getMessage(), "Błąd", JOptionPane.ERROR_MESSAGE); }
+        if (fc.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
+            try {
+                javax.imageio.ImageIO.write(img, "png", fc.getSelectedFile());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
+    }
+
+    private void exportWav() {
+        if (recordedSamples.isEmpty()) return;
+
+        JFileChooser fc = new JFileChooser();
+        if (fc.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
+
+        short[] data = new short[recordedSamples.size()];
+        for (int i = 0; i < data.length; i++) data[i] = recordedSamples.get(i);
+
+        WavWriter.write(fc.getSelectedFile(), data, (int) SAMPLE_RATE);
     }
 }

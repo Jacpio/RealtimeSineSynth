@@ -66,6 +66,20 @@ public class FFTPanel extends JPanel {
         g2.setColor(Color.DARK_GRAY);
         g2.drawLine(0, h - 20, w, h - 20);
 
+        g2.setColor(new Color(0, 160, 0));
+
+        double baseFreq = 440.0;
+        for (int hIdx = 1; hIdx <= 10; hIdx++) {
+            double f = baseFreq * hIdx;
+            if (f > 20000) break;
+
+            int x = (int) (
+                    Math.log10(f + 1) / Math.log10(20001) * (w - 1)
+            );
+
+            g2.drawLine(x, h - 20, x, 10);
+        }
+
         double max = 1e-9;
         for (int i = 1; i < lastComputedSize; i++) {
             if (magnitude[i] > max) max = magnitude[i];

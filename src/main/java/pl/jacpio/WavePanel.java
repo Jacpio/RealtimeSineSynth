@@ -10,6 +10,7 @@ public class WavePanel extends JPanel {
     private final float[] circularBuffer;
     private final IntSupplier writeIndexSupplier;
     private final List<Tone> tones;
+    private double zoom = 1.0;
 
     public WavePanel(float[] circularBuffer, IntSupplier writeIndexSupplier, List<Tone> tones) {
         this.circularBuffer = circularBuffer;
@@ -17,6 +18,13 @@ public class WavePanel extends JPanel {
         this.tones = tones;
         setBackground(Color.white);
         setBorder(BorderFactory.createLineBorder(Color.gray));
+
+        addMouseWheelListener(e -> {
+            zoom *= e.getWheelRotation() < 0 ? 1.1 : 0.9;
+            zoom = Math.max(0.2, Math.min(5.0, zoom));
+            repaint();
+        });
+
     }
 
     @Override
@@ -32,7 +40,7 @@ public class WavePanel extends JPanel {
         g2.drawLine(0, h / 2, w, h / 2);
 
         float[] copy;
-        int len = Math.min(w, 2048);
+        int len = (int)(Math.min(w, 2048) / zoom);
         copy = new float[len];
         synchronized (circularBuffer) {
             int writeIndex = writeIndexSupplier.getAsInt();
