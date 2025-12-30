@@ -64,7 +64,7 @@ Aplikacja jest przeznaczona głównie do **nauki fizyki, akustyki i przetwarzani
 ### Uruchamianie
 
 ```bash
- java -jar Fizyka-1.0-SNAPSHOT.jar
+ java -jar Jacpio RSS-1.0.jar
 ```
 
 ---
@@ -72,20 +72,8 @@ Aplikacja jest przeznaczona głównie do **nauki fizyki, akustyki i przetwarzani
 ### Kompilacja (Gradle)
 
 ```bash
- ./gradlew clean
- ./gradlew buildDependents
- ./gradlew run
+./gradlew clean build
 ```
-
----
-
-### Planowane rozszerzenia
-
-- Podświetlanie harmonicznych na FFT
-- Eksport dźwięku do WAV lub MP3
-- Motywy kolorystyczne (Jasny / Ciemny)
-- Inne typy fal (prostokątna, trójkątna, piła)
-- Przybliżanie i oddalanie wykresów
 
 ---
 
@@ -142,7 +130,7 @@ The application helps users understand:
 ### Running the Application
 
 ```bash
-java -jar Fizyka-1.0-SNAPSHOT.jar
+java -jar Jacpio RSS-1.0.jar
 ```
 
 ---
@@ -152,22 +140,11 @@ java -jar Fizyka-1.0-SNAPSHOT.jar
 Using **Gradle**:
 
 ```bash
-./gradlew clean
-./gradlew buildDependents
-./gradlew run
+./gradlew clean build
 ```
 
 ---
 
-### Planned Features
-
-- Highlighting harmonics in FFT view
-- Export generated sound to WAV / MP3
-- Light / Dark theme switching
-- Additional wave types (square, triangle, sawtooth)
-- Zooming and scaling of plots
-
----
 
 ## License / Licencja
 

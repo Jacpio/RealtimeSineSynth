@@ -16,18 +16,30 @@ dependencies {
     implementation("com.formdev:flatlaf:3.1")
 }
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    toolchain{
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
-
+application {
+    mainClass.set("pl.jacpio.RealtimeSineSynth")
+}
 tasks.test {
     useJUnitPlatform()
 }
-
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+    options.release.set(17)
+}
 tasks.jar {
     manifest {
-        attributes["Main-Class"] = "pl.jacpio.RealtimeSineSynth"
+        attributes(
+            "Main-Class" to "pl.jacpio.RealtimeSineSynth"
+        )
     }
-
-    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(
+        configurations.runtimeClasspath.get().map {
+            if (it.isDirectory) it else zipTree(it)
+        }
+    )
 }
